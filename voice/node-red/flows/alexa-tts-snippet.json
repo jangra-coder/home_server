@@ -1,0 +1,89 @@
+[
+  {
+    "id": "tab_alexa_tts",
+    "type": "tab",
+    "label": "Alexa TTS (optional)",
+    "disabled": false,
+    "info": "OPTIONAL add-on. Requires the palette:\n\n    node-red-contrib-alexa-remote2\n\nInstall it via Menu -> Manage palette -> Install, then open the\n'speak on Echo' node and create/select an Alexa account config node\n(the account cannot be pre-filled here -- it holds a login and is\ncreated interactively in the editor).\n\nWiring: Alexa Routine -> turns on a virtual device / calls the\nwebhook -> this flow runs server_brain.py and announces the result\non the chosen Echo."
+  },
+  {
+    "id": "cmt_alexa_setup",
+    "type": "comment",
+    "z": "tab_alexa_tts",
+    "name": "1. Install node-red-contrib-alexa-remote2  2. Configure the account node  3. Pick your Echo",
+    "info": "The 'speak on Echo' node below is deliberately left without an\naccount reference so this file imports without leaking credentials.\nNode-RED will flag it as needing configuration -- that is expected.",
+    "x": 480,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "link_in_speak",
+    "type": "link in",
+    "z": "tab_alexa_tts",
+    "name": "speak this",
+    "links": [],
+    "x": 145,
+    "y": 160,
+    "wires": [["fn_tts_text"]]
+  },
+  {
+    "id": "inj_tts_test",
+    "type": "inject",
+    "z": "tab_alexa_tts",
+    "name": "test phrase",
+    "props": [{ "p": "payload" }],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "Yes, the movie is at 42 percent. About 5 minutes remaining.",
+    "payloadType": "str",
+    "x": 150,
+    "y": 220,
+    "wires": [["fn_tts_text"]]
+  },
+  {
+    "id": "fn_tts_text",
+    "type": "function",
+    "z": "tab_alexa_tts",
+    "name": "prepare TTS text",
+    "func": "// Alexa's TTS chokes on markup and reads punctuation soup badly.\n// server_brain.py already emits clean prose, but this flow may also be\n// fed from elsewhere, so normalise defensively.\nlet text = String(msg.payload || '').trim();\n\n// Strip anything that would be read out literally or break SSML.\ntext = text.replace(/[*_`~<>]/g, '');\ntext = text.replace(/\\s+/g, ' ').trim();\n\nif (!text) {\n    text = 'Sorry, I have nothing to report.';\n}\n\n// Keep it short: Alexa talks over itself past roughly 12 seconds.\nif (text.length > 300) {\n    text = text.slice(0, 297) + '...';\n}\n\nmsg.payload = text;\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 190,
+    "wires": [["dbg_tts"]]
+  },
+  {
+    "id": "dbg_tts",
+    "type": "debug",
+    "z": "tab_alexa_tts",
+    "name": "text sent to Echo",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload",
+    "statusType": "auto",
+    "x": 640,
+    "y": 190,
+    "wires": []
+  },
+  {
+    "id": "cmt_connect_here",
+    "type": "comment",
+    "z": "tab_alexa_tts",
+    "name": ">>> Connect 'prepare TTS text' to an alexa-remote-routine node (type: speak) <<<",
+    "info": "Add the node manually after installing the palette:\n\n  Node: alexa-remote-routine\n  Routine type: speak\n  Text: msg.payload\n  Device: your Echo\n\nIt is not shipped pre-wired here because an unresolved contrib node\ntype makes the whole flow file fail to import on a stock Node-RED.",
+    "x": 470,
+    "y": 260,
+    "wires": []
+  }
+]

@@ -1,0 +1,25 @@
+# Secrets -- never commit real credentials. Use the .env.example templates.
+.env
+*.env
+!.env.example
+!**/.env.example
+
+# Telegram session files carry live auth state
+*.session
+*.session-journal
+*.session-wal
+*.session-shm
+
+# Node-RED runtime data (flows_cred.json holds encrypted credentials)
+voice/node-red/data/
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Migration scratch
+*.bak
+*.log

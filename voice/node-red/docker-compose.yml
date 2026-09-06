@@ -1,0 +1,59 @@
+# Node-RED with everything server_brain.py needs to answer a voice command.
+#
+# The two bind mounts below are the whole trick:
+#   * the bot directory, so we can read its .session file
+#   * the downloads directory, so the .part fallback can see bytes landing
+# Both are mounted READ-ONLY. server_brain.py copies the session to /tmp before
+# opening it, so it never needs write access -- and can never corrupt the
+# daemon's auth state, which is exactly how the tmp_auth_key schema conflict
+# happened the first time around.
+
+services:
+  nodered:
+    image: nodered/node-red:4.0
+    container_name: nodered
+    restart: unless-stopped
+    user: "1000:1000"
+    ports:
+      - "1880:1880"
+    environment:
+      TZ: "${TZ:-Asia/Kolkata}"
+
+      # --- Telegram API credentials (from https://my.telegram.org) ----------
+      # Keep these in a .env file beside this compose file; never commit them.
+      TG_API_ID: "${TG_API_ID}"
+      TG_API_HASH: "${TG_API_HASH}"
+
+      # --- Where the bot lives, as seen from INSIDE this container ---------
+      TG_BOT_DIR: "/mnt/telegram_bot"
+      TG_SESSION_NAME: "${TG_SESSION_NAME:-downloader}"
+      TG_DOWNLOADS_DIR: "/mnt/telegram_bot/downloads"
+
+      # Chat the bot posts progress into: numeric id, @username, or "me".
+      TG_STATUS_CHAT: "${TG_STATUS_CHAT:-me}"
+
+      # A progress message not edited within this many seconds is "stalled",
+      # not "downloading" -- otherwise Alexa cheerfully reports 42% for hours.
+      TG_STALE_AFTER: "${TG_STALE_AFTER:-120}"
+
+      VOICE_LANG: "${VOICE_LANG:-en}"
+
+    volumes:
+      - ./data:/data
+
+      # Host bot directory -> container. Read-only on purpose (see header).
+      - ${TELEGRAM_BOT_DIR:-/home/dell_jan/telegram-downloader}:/mnt/telegram_bot:ro
+
+      # Persist the pip --user install across container restarts, so the
+      # bootstrap script's work is not thrown away every `docker restart`.
+      - nodered_local:/usr/src/node-red/.local
+
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:1880/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  nodered_local:
